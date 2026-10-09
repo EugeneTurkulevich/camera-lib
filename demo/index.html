@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0d">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>Тест камери</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d0d0d;
+    --fg: #f2f2f2;
+    --muted: #a3a3a3;
+    --line: #555;
+    --rec: #e5484d;
+    --gutter: 16px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+  body { display: flex; flex-direction: column; }
+  @media (min-width: 720px) {
+    body { max-width: 480px; width: 100%; margin: 0 auto; }
+  }
+  button { font: inherit; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    background: #000;
+    overflow: hidden;
+  }
+  #video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: calc(env(safe-area-inset-top) + 12px) var(--gutter) 24px;
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  }
+  #cam-label {
+    min-width: 0;
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tools { display: flex; gap: 8px; flex: none; }
+  .tool {
+    min-width: 44px;
+    min-height: 44px;
+    color: #fff;
+    background: none;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .tool.on { background: #fff; color: #000; }
+
+  .start {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    min-height: 44px;
+    padding: 0 20px;
+    color: #000;
+    background: #fff;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .result {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+  }
+  .result-media {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    object-fit: contain;
+  }
+  #result-info {
+    margin: 8px 0 0;
+    padding: 0 var(--gutter);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .result-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px var(--gutter) calc(env(safe-area-inset-bottom) + 12px);
+  }
+  .result-bar > * {
+    flex: 1 1 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000;
+    background: #fff;
+    border: 0;
+    border-radius: 8px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .panel {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px var(--gutter) calc(env(safe-area-inset-bottom) + 12px);
+  }
+  .seg { display: flex; gap: 8px; }
+  .seg button {
+    flex: 1 1 0;
+    min-height: 44px;
+    color: var(--fg);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] {
+    color: #000;
+    background: #fff;
+    border-color: #fff;
+  }
+  .hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+  }
+  .shutter-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .timer {
+    min-height: 1.2em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    color: var(--rec);
+  }
+  .shutter {
+    width: 72px;
+    height: 72px;
+    padding: 0;
+    background: #fff;
+    border: 4px solid #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .shutter--video { background: var(--rec); }
+  .shutter--rec {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+  .zoom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+  }
+  .zoom input {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+  }
+  #zoom-value {
+    flex: none;
+    width: 3.5em;
+    text-align: right;
+    font-size: 0.85rem;
+  }
+  .net {
+    flex: none;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    color: #000;
+    background: #ffb020;
+    border-radius: 6px;
+  }
+  .gallery-btn {
+    min-height: 44px;
+    color: var(--fg);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .gallery {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overflow-y: auto;
+  }
+  .gallery-head {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: calc(env(safe-area-inset-top) + 12px) var(--gutter) 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .gallery-head button {
+    min-height: 44px;
+    padding: 0 16px;
+    color: #000;
+    background: #fff;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #gallery-empty {
+    margin: 24px var(--gutter);
+    color: var(--muted);
+  }
+  .gallery-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 12px var(--gutter) calc(env(safe-area-inset-bottom) + 16px);
+  }
+  .gallery-item { margin: 0; }
+  .gallery-item img,
+  .gallery-item video {
+    display: block;
+    width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    background: #000;
+    border-radius: 8px;
+  }
+  .gallery-item figcaption {
+    margin: 6px 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+    word-break: break-word;
+  }
+  .gallery-actions { display: flex; gap: 8px; }
+  .gallery-dl,
+  .gallery-del {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    border-radius: 8px;
+    font: inherit;
+    cursor: pointer;
+  }
+  .gallery-dl {
+    flex: 1;
+    color: #000;
+    background: #fff;
+    border: 0;
+    text-decoration: none;
+  }
+  .gallery-del {
+    min-width: 44px;
+    color: #fff;
+    background: none;
+    border: 2px solid #fff;
+  }
+  #status {
+    margin: 0;
+    min-height: 1.4em;
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+    word-break: break-word;
+  }
+  /* Версія стенда — завжди видима поверх відео, щоб звірити свіжість
+     встановленого додатка одним поглядом (у репо "dev", на хості — штамп). */
+  .stamp {
+    flex: none;
+    margin: 0;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 8px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <video id="video" playsinline muted autoplay></video>
+  <button id="start" class="start" type="button">Відкрити камеру</button>
+
+  <div class="top">
+    <p id="stamp" class="stamp" title="версія стенда">dev</p>
+    <span id="cam-label"></span>
+    <span id="net" class="net" hidden>офлайн</span>
+    <div class="tools">
+      <button id="switch" class="tool" type="button" aria-label="Наступна камера" hidden>🔄</button>
+      <button id="torch" class="tool" type="button" aria-label="Спалах" aria-pressed="false" hidden>🔦</button>
+    </div>
+  </div>
+
+  <div id="result" class="result" hidden>
+    <img id="result-img" class="result-media" alt="Зроблене фото" hidden>
+    <video id="result-video" class="result-media" controls playsinline hidden></video>
+    <p id="result-info"></p>
+    <div class="result-bar">
+      <a id="download" href="#" download>Завантажити</a>
+      <button id="result-close" type="button">Назад</button>
+    </div>
+  </div>
+
+  <div id="gallery" class="gallery" hidden>
+    <div class="gallery-head">
+      <span>Збережене на пристрої</span>
+      <button id="gallery-close" type="button">Назад</button>
+    </div>
+    <p id="gallery-empty" hidden>Поки що порожньо: знімки з'являться тут.</p>
+    <div id="gallery-list" class="gallery-list"></div>
+  </div>
+</div>
+
+<section class="panel">
+  <div class="seg" role="group" aria-label="Режим">
+    <button type="button" data-mode="photo" aria-pressed="true">Фото</button>
+    <button type="button" data-mode="video" aria-pressed="false">Відео</button>
+  </div>
+  <div class="seg" role="group" aria-label="Якість">
+    <button type="button" data-quality="720p" aria-pressed="true">720p</button>
+    <button type="button" data-quality="1080p" aria-pressed="false">1080p</button>
+  </div>
+  <div id="fps-group" class="seg" role="group" aria-label="Кадри на секунду" hidden>
+    <button type="button" data-fps="15" aria-pressed="false">15 к/с</button>
+    <button type="button" data-fps="30" aria-pressed="true">30 к/с</button>
+  </div>
+  <label id="zoom" class="zoom" hidden>
+    <input id="zoom-range" type="range" aria-label="Зум">
+    <span id="zoom-value"></span>
+  </label>
+  <p id="hint" class="hint"></p>
+  <button id="gallery-btn" class="gallery-btn" type="button">Збережене · 0</button>
+  <div class="shutter-row">
+    <button id="shutter" class="shutter" type="button" aria-label="Зняти фото" disabled></button>
+    <span id="timer" class="timer"></span>
+  </div>
+  <p id="status" role="status"></p>
+</section>
+
+<script type="module" src="./demo.js"></script>
+</body>
+</html>
